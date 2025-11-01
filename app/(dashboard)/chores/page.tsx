@@ -61,28 +61,33 @@ export default function ChoresPage() {
 
   async function loadUserFamily(email: string) {
     try {
-      // Get user's family
-      const { data: userData, error: userError } = await supabase
+      // First, check if user exists in our users table
+      const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
-        .select('family_id')
+        .select('family_id, id')
         .eq('email', email)
-        .single()
+        .maybeSingle() // Use maybeSingle instead of single to avoid error if not found
 
-      if (userError) throw userError
+      if (userCheckError && userCheckError.code !== 'PGRST116') {
+        // PGRST116 is "not found" - that's okay, anything else is a real error
+        throw userCheckError
+      }
 
-      if (!userData?.family_id) {
-        // Create family if doesn't exist
+      if (existingUser?.family_id) {
+        // User exists and has a family
+        setFamilyId(existingUser.family_id)
+        await loadChores(existingUser.family_id)
+        await loadFamilyMembers(existingUser.family_id)
+      } else {
+        // User doesn't exist or doesn't have a family - create one
         const familyId = await createDefaultFamily(email)
         setFamilyId(familyId)
         await loadChores(familyId)
         await loadFamilyMembers(familyId)
-      } else {
-        setFamilyId(userData.family_id)
-        await loadChores(userData.family_id)
-        await loadFamilyMembers(userData.family_id)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading family:', error)
+      alert(`Error: ${error.message || 'Failed to load family data'}`)
     } finally {
       setLoading(false)
     }
@@ -90,6 +95,17 @@ export default function ChoresPage() {
 
   async function createDefaultFamily(email: string) {
     try {
+      // Check if user already exists (race condition protection)
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('family_id')
+        .eq('email', email)
+        .maybeSingle()
+
+      if (existingUser?.family_id) {
+        return existingUser.family_id
+      }
+
       // Create family
       const { data: family, error: familyError } = await supabase
         .from('families')
@@ -112,7 +128,7 @@ export default function ChoresPage() {
       if (userError) throw userError
 
       return family.id
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating family:', error)
       throw error
     }
@@ -131,7 +147,7 @@ export default function ChoresPage() {
 
       if (error) throw error
       setChores(data || [])
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading chores:', error)
     }
   }
@@ -145,7 +161,7 @@ export default function ChoresPage() {
 
       if (error) throw error
       setFamilyMembers(data || [])
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading family members:', error)
     }
   }
@@ -179,9 +195,9 @@ export default function ChoresPage() {
 
       // Reload chores
       await loadChores(familyId)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding chore:', error)
-      alert('Failed to add chore')
+      alert(`Failed to add chore: ${error.message}`)
     }
   }
 
@@ -204,9 +220,9 @@ export default function ChoresPage() {
 
       // Reload chores
       await loadChores(familyId)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating chore:', error)
-      alert('Failed to update chore')
+      alert(`Failed to update chore: ${error.message}`)
     }
   }
 
@@ -224,9 +240,9 @@ export default function ChoresPage() {
 
       // Reload chores
       await loadChores(familyId)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting chore:', error)
-      alert('Failed to delete chore')
+      alert(`Failed to delete chore: ${error.message}`)
     }
   }
 

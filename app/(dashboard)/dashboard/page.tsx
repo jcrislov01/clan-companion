@@ -110,7 +110,12 @@ export default function DashboardPage() {
               <div className="text-xs text-gray-500">Items to buy</div>
             </div>
             <button className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">
-              View Lists
+            <Link 
+  href="/shopping"
+  className="block w-full px-4 py-2 bg-green-600 text-center text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
+>
+  View Lists
+</Link>
             </button>
           </div>
 

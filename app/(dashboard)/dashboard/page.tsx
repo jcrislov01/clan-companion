@@ -87,7 +87,12 @@ export default function DashboardPage() {
               <div className="text-xs text-gray-500">Active chores</div>
             </div>
             <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
-              View Chores
+              <Link 
+  href="/chores"
+  className="block w-full px-4 py-2 bg-blue-600 text-center text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+>
+  View Chores
+</Link>
             </button>
           </div>
 

@@ -8,20 +8,111 @@ import Link from 'next/link'
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
+  const [familyId, setFamilyId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  
+  // Stats
+  const [stats, setStats] = useState({
+    totalChores: 0,
+    openChores: 0,
+    completedToday: 0,
+    shoppingItems: 0,
+    mealsPlanned: 0,
+  })
 
   useEffect(() => {
-    checkUser()
+    initialize()
   }, [])
 
-  async function checkUser() {
-    const { user, error } = await getCurrentUser()
-    if (error || !user) {
+  async function initialize() {
+    const { user: currentUser, error } = await getCurrentUser()
+    // ensure we have a user and an email before proceeding
+    if (error || !currentUser || !currentUser.email) {
       router.push('/login')
       return
     }
-    setUser(user)
-    setLoading(false)
+    setUser(currentUser)
+    await loadUserFamily(currentUser.email)
+  }
+
+  async function loadUserFamily(email: string) {
+    try {
+      const { supabase } = await import('@/lib/supabase')
+      const { data: existingUser, error: userCheckError } = await supabase
+        .from('users')
+        .select('family_id')
+        .eq('email', email)
+        .maybeSingle()
+
+      if (userCheckError && userCheckError.code !== 'PGRST116') {
+        throw userCheckError
+      }
+
+      if (existingUser?.family_id) {
+        setFamilyId(existingUser.family_id)
+        await loadStats(existingUser.family_id)
+      }
+    } catch (error: any) {
+      console.error('Error loading family:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadStats(familyId: string) {
+    try {
+      const { supabase } = await import('@/lib/supabase')
+      // Load chores stats
+      const { data: chores, error: choresError } = await supabase
+        .from('chores')
+        .select('status, completed_at')
+        .eq('family_id', familyId)
+
+      if (choresError) throw choresError
+
+      const totalChores = chores?.length || 0
+      const openChores = chores?.filter(c => c.status !== 'completed').length || 0
+      
+      // Count completed today
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const completedToday = chores?.filter(c => {
+        if (!c.completed_at) return false
+        const completedDate = new Date(c.completed_at)
+        completedDate.setHours(0, 0, 0, 0)
+        return completedDate.getTime() === today.getTime()
+      }).length || 0
+
+      // Load shopping items
+      const { data: shopping, error: shoppingError } = await supabase
+        .from('shopping_items')
+        .select('checked')
+        .eq('family_id', familyId)
+
+      if (shoppingError) throw shoppingError
+
+      const shoppingItems = shopping?.filter(item => !item.checked).length || 0
+
+      // Load meals planned
+      const { data: meals, error: mealsError } = await supabase
+        .from('meal_slots')
+        .select('id')
+        .eq('family_id', familyId)
+
+      if (mealsError) throw mealsError
+
+      const mealsPlanned = meals?.length || 0
+
+      setStats({
+        totalChores,
+        openChores,
+        completedToday,
+        shoppingItems,
+        mealsPlanned,
+      })
+    } catch (error: any) {
+      console.error('Error loading stats:', error)
+    }
   }
 
   async function handleSignOut() {
@@ -83,12 +174,12 @@ export default function DashboardPage() {
               Manage family chores and tasks
             </p>
             <div className="mb-4">
-              <div className="text-3xl font-bold text-blue-600">0</div>
+              <div className="text-3xl font-bold text-blue-600">{stats.openChores}</div>
               <div className="text-xs text-gray-500">Active chores</div>
             </div>
-            <Link
+            <Link 
               href="/chores"
-              className="w-full inline-block px-4 py-2 bg-blue-600 text-center text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+              className="block w-full px-4 py-2 bg-blue-600 text-center text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
             >
               View Chores
             </Link>
@@ -104,12 +195,12 @@ export default function DashboardPage() {
               Shared shopping lists
             </p>
             <div className="mb-4">
-              <div className="text-3xl font-bold text-green-600">0</div>
+              <div className="text-3xl font-bold text-green-600">{stats.shoppingItems}</div>
               <div className="text-xs text-gray-500">Items to buy</div>
             </div>
-            <Link
+            <Link 
               href="/shopping"
-              className="w-full inline-block px-4 py-2 bg-green-600 text-center text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
+              className="block w-full px-4 py-2 bg-green-600 text-center text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
             >
               View Lists
             </Link>
@@ -125,17 +216,15 @@ export default function DashboardPage() {
               Plan your weekly meals
             </p>
             <div className="mb-4">
-              <div className="text-3xl font-bold text-purple-600">0</div>
+              <div className="text-3xl font-bold text-purple-600">{stats.mealsPlanned}</div>
               <div className="text-xs text-gray-500">Meals planned</div>
             </div>
-            <button className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium">
-              <Link 
-  href="/meals"
-  className="block w-full px-4 py-2 bg-purple-600 text-center text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium"
->
-  Plan Meals
-</Link>
-            </button>
+            <Link 
+              href="/meals"
+              className="block w-full px-4 py-2 bg-purple-600 text-center text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium"
+            >
+              Plan Meals
+            </Link>
           </div>
         </div>
 
@@ -144,27 +233,46 @@ export default function DashboardPage() {
           <h3 className="text-xl font-semibold mb-4">Family Overview</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="text-3xl font-bold text-blue-600">0</div>
+              <div className="text-3xl font-bold text-blue-600">{stats.completedToday}</div>
               <div className="text-sm text-gray-600 mt-1">Tasks Completed Today</div>
             </div>
             <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-3xl font-bold text-green-600">0</div>
-              <div className="text-sm text-gray-600 mt-1">Shopping Items</div>
+              <div className="text-3xl font-bold text-green-600">{stats.shoppingItems}</div>
+              <div className="text-sm text-gray-600 mt-1">Shopping Items Needed</div>
             </div>
             <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <div className="text-3xl font-bold text-purple-600">0</div>
-              <div className="text-sm text-gray-600 mt-1">Upcoming Events</div>
+              <div className="text-3xl font-bold text-purple-600">{stats.mealsPlanned}</div>
+              <div className="text-sm text-gray-600 mt-1">Meals Planned This Week</div>
             </div>
           </div>
         </div>
 
-        {/* Coming Soon Notice */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h4 className="font-semibold text-blue-900 mb-2">🚧 Under Construction</h4>
-          <p className="text-blue-800 text-sm">
-            Individual feature pages are being built! For now, this dashboard shows the foundation of what's coming.
-          </p>
-        </div>
+        {/* Quick Actions */}
+        {familyId && (
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Link
+              href="/chores"
+              className="bg-white border-2 border-blue-200 rounded-lg p-4 hover:border-blue-400 hover:bg-blue-50 transition text-center"
+            >
+              <div className="text-2xl mb-2">➕</div>
+              <div className="font-medium text-gray-900">Add Chore</div>
+            </Link>
+            <Link
+              href="/shopping"
+              className="bg-white border-2 border-green-200 rounded-lg p-4 hover:border-green-400 hover:bg-green-50 transition text-center"
+            >
+              <div className="text-2xl mb-2">🛒</div>
+              <div className="font-medium text-gray-900">Add Shopping Item</div>
+            </Link>
+            <Link
+              href="/meals"
+              className="bg-white border-2 border-purple-200 rounded-lg p-4 hover:border-purple-400 hover:bg-purple-50 transition text-center"
+            >
+              <div className="text-2xl mb-2">🍽️</div>
+              <div className="font-medium text-gray-900">Plan Meal</div>
+            </Link>
+          </div>
+        )}
       </main>
     </div>
   )

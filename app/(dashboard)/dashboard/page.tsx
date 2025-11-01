@@ -86,14 +86,12 @@ export default function DashboardPage() {
               <div className="text-3xl font-bold text-blue-600">0</div>
               <div className="text-xs text-gray-500">Active chores</div>
             </div>
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
-              <Link 
-  href="/chores"
-  className="block w-full px-4 py-2 bg-blue-600 text-center text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
->
-  View Chores
-</Link>
-            </button>
+            <Link
+              href="/chores"
+              className="w-full inline-block px-4 py-2 bg-blue-600 text-center text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+            >
+              View Chores
+            </Link>
           </div>
 
           {/* Shopping Card */}
@@ -109,14 +107,12 @@ export default function DashboardPage() {
               <div className="text-3xl font-bold text-green-600">0</div>
               <div className="text-xs text-gray-500">Items to buy</div>
             </div>
-            <button className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">
-            <Link 
-  href="/shopping"
-  className="block w-full px-4 py-2 bg-green-600 text-center text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
->
-  View Lists
-</Link>
-            </button>
+            <Link
+              href="/shopping"
+              className="w-full inline-block px-4 py-2 bg-green-600 text-center text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
+            >
+              View Lists
+            </Link>
           </div>
 
           {/* Meals Card */}
@@ -133,7 +129,12 @@ export default function DashboardPage() {
               <div className="text-xs text-gray-500">Meals planned</div>
             </div>
             <button className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium">
-              Plan Meals
+              <Link 
+  href="/meals"
+  className="block w-full px-4 py-2 bg-purple-600 text-center text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium"
+>
+  Plan Meals
+</Link>
             </button>
           </div>
         </div>

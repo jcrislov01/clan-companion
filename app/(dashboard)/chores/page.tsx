@@ -50,13 +50,14 @@ export default function ChoresPage() {
   }, [])
 
   async function initialize() {
-    const { user, error } = await getCurrentUser()
-    if (error || !user) {
+    const { user: currentUser, error } = await getCurrentUser()
+    // ensure we have a user with an email before proceeding
+    if (error || !currentUser || !currentUser.email) {
       router.push('/login')
       return
     }
-    setUser(user)
-    await loadUserFamily(user.email)
+    setUser(currentUser)
+    await loadUserFamily(currentUser.email)
   }
 
   async function loadUserFamily(email: string) {

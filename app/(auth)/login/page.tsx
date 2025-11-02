@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signIn, signUp } from '@/lib/supabase'
 import Link from 'next/link'
+import { signIn, signUp, checkOnboardingStatus } from '@/lib/supabase'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,32 +15,42 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setMessage('')
-    setLoading(true)
+  async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault()
+  setError('')
+  setMessage('')
+  setLoading(true)
 
-    try {
-      if (isSignUp) {
-        if (!name.trim()) {
-          throw new Error('Name is required')
-        }
-        const { error } = await signUp(email, password, name)
-        if (error) throw error
-        setMessage('Check your email to confirm your account!')
-      } else {
-        const { error } = await signIn(email, password)
-        if (error) throw error
-        router.push('/dashboard')
-        router.refresh()
+  try {
+    if (isSignUp) {
+      if (!name.trim()) {
+        throw new Error('Name is required')
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred')
-    } finally {
-      setLoading(false)
+      const { error } = await signUp(email, password, name)
+      if (error) throw error
+      setMessage('Check your email to confirm your account!')
+    } else {
+      const { error } = await signIn(email, password)
+      if (error) throw error
+      
+      // Check onboarding status
+      const status = await checkOnboardingStatus(email)
+      
+      if (!status.completed || !status.hasFamily) {
+        // Need to complete onboarding
+        router.push('/onboarding/family')
+      } else {
+        // Onboarding complete, go to dashboard
+        router.push('/dashboard')
+      }
+      router.refresh()
     }
+  } catch (err: any) {
+    setError(err.message || 'An error occurred')
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white px-4">
